@@ -46,16 +46,17 @@ services:
     restart: unless-stopped
 
   # Voice Service (Speech Recognition & TTS)
-  voice-service:
-    build: ./services/voice-service
-    container_name: bmo-voice
-    ports:
-      - "8002:8002"
-    environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
-    volumes:
-      - ./credentials.json:/app/credentials.json:ro
-    restart: unless-stopped
+  # voice-service:
+  #   build: ./services/voice-service
+  #   container_name: bmo-voice
+  #   ports:
+  #     - "8002:8002"
+  #   environment:
+  #     - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+  #   volumes:
+  #     - ./credentials.json:/app/credentials.json:ro
+  #   restart: unless-stopped
+  # Uncomment above if you have Google Cloud credentials
 
   # Task Service (App launching & automation)
   task-service:
@@ -77,7 +78,6 @@ services:
       - TASK_SERVICE_URL=http://task-service:8003
     depends_on:
       - ai-service
-      - voice-service
       - task-service
     restart: unless-stopped
 

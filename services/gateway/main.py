@@ -16,7 +16,7 @@ app.add_middleware(
 
 # Service URLs
 AI_SERVICE = os.getenv("AI_SERVICE_URL", "http://localhost:8001")
-VOICE_SERVICE = os.getenv("VOICE_SERVICE_URL", "http://localhost:8002")
+VOICE_SERVICE = os.getenv("VOICE_SERVICE_URL", "")  # Empty if not available
 TASK_SERVICE = os.getenv("TASK_SERVICE_URL", "http://localhost:8003")
 
 # HTTP client
@@ -68,6 +68,11 @@ async def set_user(session_id: str, name: str):
 async def speech_to_text(request: Request):
     """Forward speech-to-text requests"""
     try:
+        if not VOICE_SERVICE:
+            raise HTTPException(
+                status_code=503, 
+                detail="Voice service not available. Enable it by adding Google Cloud credentials."
+            )
         form = await request.form()
         files = {"audio": (form["audio"].filename, form["audio"].file, form["audio"].content_type)}
         response = await client.post(f"{VOICE_SERVICE}/speech-to-text", files=files)
@@ -79,6 +84,11 @@ async def speech_to_text(request: Request):
 async def text_to_speech(request: Request):
     """Forward text-to-speech requests"""
     try:
+        if not VOICE_SERVICE:
+            raise HTTPException(
+                status_code=503,
+                detail="Voice service not available. Enable it by adding Google Cloud credentials."
+            )
         body = await request.json()
         response = await client.post(f"{VOICE_SERVICE}/text-to-speech", json=body)
         
@@ -136,12 +146,15 @@ async def health_check():
     except:
         health["services"]["ai"] = {"status": "unhealthy"}
     
-    # Check Voice service
-    try:
-        response = await client.get(f"{VOICE_SERVICE}/health", timeout=5.0)
-        health["services"]["voice"] = response.json()
-    except:
-        health["services"]["voice"] = {"status": "unhealthy"}
+    # Check Voice service (if available)
+    if VOICE_SERVICE:
+        try:
+            response = await client.get(f"{VOICE_SERVICE}/health", timeout=5.0)
+            health["services"]["voice"] = response.json()
+        except:
+            health["services"]["voice"] = {"status": "unhealthy"}
+    else:
+        health["services"]["voice"] = {"status": "disabled", "note": "Add Google Cloud credentials to enable"}
     
     # Check Task service
     try:
