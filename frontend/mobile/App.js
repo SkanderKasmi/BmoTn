@@ -301,22 +301,94 @@ export default function App() {
   );
 }
 
-// BMO Face Component
+// BMO Face Component with Eye Tracking
 function BMOFace({ mood, blinkAnim, bounceAnim, isSpeaking }) {
+  const [eyePosition, setEyePosition] = useState({ x: 0, y: 0 });
+  const faceRef = useRef(null);
+
   const eyeScale = blinkAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.1, 1],
   });
 
+  // Touch tracking - eyes follow touch
+  const handleTouchMove = (event) => {
+    if (!event.nativeEvent.touches[0]) return;
+    
+    const touch = event.nativeEvent.touches[0];
+    const { pageX, pageY } = touch;
+    
+    // Get face position (approximate center of screen)
+    const faceCenterX = width / 2;
+    const faceCenterY = height / 4;
+    
+    const deltaX = pageX - faceCenterX;
+    const deltaY = pageY - faceCenterY;
+    
+    const maxMove = 8;
+    const x = (deltaX / width) * maxMove * 2;
+    const y = (deltaY / height) * maxMove * 2;
+    
+    setEyePosition({ 
+      x: Math.max(-maxMove, Math.min(maxMove, x)), 
+      y: Math.max(-maxMove, Math.min(maxMove, y)) 
+    });
+  };
+
+  // Random idle eye movements
+  useEffect(() => {
+    const idleMovement = setInterval(() => {
+      if (Math.abs(eyePosition.x) < 1 && Math.abs(eyePosition.y) < 1) {
+        const randomX = (Math.random() - 0.5) * 6;
+        const randomY = (Math.random() - 0.5) * 6;
+        setEyePosition({ x: randomX, y: randomY });
+        
+        setTimeout(() => {
+          setEyePosition({ x: 0, y: 0 });
+        }, 500);
+      }
+    }, 5000);
+
+    return () => clearInterval(idleMovement);
+  }, [eyePosition]);
+
   return (
-    <View style={styles.bmoFace}>
+    <View 
+      style={styles.bmoFace} 
+      ref={faceRef}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => {
+        // Return eyes to center when touch ends
+        setTimeout(() => setEyePosition({ x: 0, y: 0 }), 300);
+      }}
+    >
       <View style={styles.screen}>
         <View style={styles.eyes}>
           <Animated.View style={[styles.eye, { transform: [{ scaleY: eyeScale }] }]}>
-            <View style={styles.pupil} />
+            <Animated.View 
+              style={[
+                styles.pupil,
+                {
+                  transform: [
+                    { translateX: eyePosition.x },
+                    { translateY: eyePosition.y }
+                  ]
+                }
+              ]} 
+            />
           </Animated.View>
           <Animated.View style={[styles.eye, { transform: [{ scaleY: eyeScale }] }]}>
-            <View style={styles.pupil} />
+            <Animated.View 
+              style={[
+                styles.pupil,
+                {
+                  transform: [
+                    { translateX: eyePosition.x },
+                    { translateY: eyePosition.y }
+                  ]
+                }
+              ]} 
+            />
           </Animated.View>
         </View>
         

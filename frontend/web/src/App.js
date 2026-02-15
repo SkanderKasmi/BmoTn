@@ -2,25 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const IS_POPUP = window.opener !== null;
 
 function App() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [sessionId] = useState(() => {
-    // Persist session across popup and main window
-    const stored = localStorage.getItem('bmo-session-id');
-    if (stored) return stored;
-    const newId = `session-${Date.now()}`;
-    localStorage.setItem('bmo-session-id', newId);
-    return newId;
-  });
+  const [sessionId] = useState(() => `session-${Date.now()}`);
   const [userName, setUserName] = useState('');
   const [showNamePrompt, setShowNamePrompt] = useState(true);
-  const [bmoMood, setBmoMood] = useState('happy');
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [bmoMood, setBmoMood] = useState('happy'); // happy, talking, thinking, excited
   
   const messagesEndRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -33,57 +24,16 @@ function App() {
 
   useEffect(scrollToBottom, [messages]);
 
-  // Load saved session
-  useEffect(() => {
-    const savedName = localStorage.getItem('bmo-user-name');
-    if (savedName) {
-      setUserName(savedName);
-      setShowNamePrompt(false);
-      loadConversationHistory();
-    }
-  }, []);
-
-  // Load conversation history
-  const loadConversationHistory = async () => {
-    // In production, fetch from server
-    const stored = localStorage.getItem('bmo-messages');
-    if (stored) {
-      setMessages(JSON.parse(stored));
-    }
-  };
-
-  // Save messages to localStorage
-  useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('bmo-messages', JSON.stringify(messages));
-    }
-  }, [messages]);
-
-  // Open as popup window
-  const openAsPopup = () => {
-    const width = 400;
-    const height = 600;
-    const left = window.screen.width - width - 50;
-    const top = 50;
-    
-    window.open(
-      window.location.href + '?popup=true',
-      'BMO Assistant',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-    );
-  };
-
   // Set user name
   const handleSetName = async () => {
     if (userName.trim()) {
-      localStorage.setItem('bmo-user-name', userName);
-      
       try {
         await fetch(`${API_BASE}/ai/set-user?session_id=${sessionId}&name=${userName}`, {
           method: 'POST'
         });
         setShowNamePrompt(false);
         
+        // Welcome message
         const welcomeMsg = {
           role: 'assistant',
           content: `مرحبا ${userName}! 🎮 أنا BMO، صاحبك الجديد! آش نحب نعاونك فيه اليوم؟`
@@ -99,6 +49,7 @@ function App() {
   const sendMessage = async (text, imageData = null) => {
     if (!text.trim() && !imageData) return;
 
+    // Add user message
     const userMsg = { role: 'user', content: text };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
@@ -118,6 +69,7 @@ function App() {
 
       const data = await response.json();
       
+      // Add assistant message
       const assistantMsg = { role: 'assistant', content: data.response };
       setMessages(prev => [...prev, assistantMsg]);
       
@@ -135,11 +87,6 @@ function App() {
       
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMsg = {
-        role: 'assistant',
-        content: 'عندي مشكلة توا... ممكن تعاود السؤال؟ 😅'
-      };
-      setMessages(prev => [...prev, errorMsg]);
       setBmoMood('happy');
     }
   };
@@ -251,25 +198,6 @@ function App() {
     }
   };
 
-  // Clear conversation
-  const clearConversation = () => {
-    if (window.confirm('تحب تمسح المحادثة الكل؟')) {
-      setMessages([]);
-      localStorage.removeItem('bmo-messages');
-    }
-  };
-
-  // Logout
-  const logout = () => {
-    if (window.confirm('تحب تخرج؟')) {
-      localStorage.removeItem('bmo-user-name');
-      localStorage.removeItem('bmo-messages');
-      setUserName('');
-      setMessages([]);
-      setShowNamePrompt(true);
-    }
-  };
-
   // Name prompt dialog
   if (showNamePrompt) {
     return (
@@ -291,109 +219,63 @@ function App() {
   }
 
   return (
-    <div className={`App ${IS_POPUP ? 'popup-mode' : ''} ${isMinimized ? 'minimized' : ''}`}>
-      {/* Popup controls */}
-      {IS_POPUP && (
-        <div className="popup-controls">
-          <button onClick={() => setIsMinimized(!isMinimized)} className="minimize-btn">
-            {isMinimized ? '▲' : '▼'}
-          </button>
-          <button onClick={() => window.close()} className="close-btn">
-            ✕
-          </button>
-        </div>
-      )}
-
+    <div className="App">
       <div className="bmo-container">
-        {!isMinimized && (
-          <>
-            <div className="bmo-sidebar">
-              <BMOFace mood={bmoMood} isSpeaking={isSpeaking} />
-              
-              <div className="user-info">
-                <p className="welcome-text">مرحبا {userName}! 👋</p>
+        <BMOFace mood={bmoMood} isSpeaking={isSpeaking} />
+        
+        <div className="chat-container">
+          <div className="messages">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`message ${msg.role}`}>
+                <div className="message-bubble">
+                  {msg.content}
+                </div>
               </div>
-
-              {!IS_POPUP && (
-                <button onClick={openAsPopup} className="popup-button">
-                  فتح في نافذة طافية 🪟
-                </button>
-              )}
-
-              <div className="action-buttons">
-                <button onClick={clearConversation} className="action-btn">
-                  مسح المحادثة 🗑️
-                </button>
-                <button onClick={logout} className="action-btn">
-                  خروج 🚪
-                </button>
-              </div>
-            </div>
-            
-            <div className="chat-container">
-              <div className="messages">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`message ${msg.role}`}>
-                    <div className="message-bubble">
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-                {isListening && (
-                  <div className="message assistant">
-                    <div className="message-bubble listening-indicator">
-                      🎤 يسمع...
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              <div className="input-container">
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(inputText)}
-                  placeholder="اكتب رسالتك..."
-                  disabled={isListening}
-                />
-                
-                <button 
-                  className={`voice-btn ${isListening ? 'listening' : ''}`}
-                  onMouseDown={startListening}
-                  onMouseUp={stopListening}
-                  onTouchStart={startListening}
-                  onTouchEnd={stopListening}
-                  title="اضغط وحكي"
-                >
-                  {isListening ? '🔴' : '🎤'}
-                </button>
-                
-                <button onClick={() => sendMessage(inputText)} disabled={!inputText.trim()}>
-                  إبعث 📤
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {isMinimized && (
-          <div className="minimized-view" onClick={() => setIsMinimized(false)}>
-            <BMOFace mood="happy" isSpeaking={false} />
-            <p>اضغط لفتح BMO</p>
+            ))}
+            <div ref={messagesEndRef} />
           </div>
-        )}
+
+          <div className="input-container">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage(inputText)}
+              placeholder="اكتب رسالتك..."
+              disabled={isListening}
+            />
+            
+            <button 
+              className={`voice-btn ${isListening ? 'listening' : ''}`}
+              onMouseDown={startListening}
+              onMouseUp={stopListening}
+              onTouchStart={startListening}
+              onTouchEnd={stopListening}
+            >
+              {isListening ? '🎤 يسمع...' : '🎤'}
+            </button>
+            
+            <button onClick={() => sendMessage(inputText)}>
+              إبعث 📤
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-// BMO Face Component (same as before)
+// BMO Face Component with Eye Tracking
 function BMOFace({ mood, isSpeaking }) {
   const [blinkLeft, setBlinkLeft] = useState(false);
   const [blinkRight, setBlinkRight] = useState(false);
+  const [eyePosition, setEyePosition] = useState({ x: 0, y: 0 });
+  const [faceDetected, setFaceDetected] = useState(null);
+  const faceRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
+  // Random blinking
   useEffect(() => {
     const blinkInterval = setInterval(() => {
       if (Math.random() > 0.7) {
@@ -409,15 +291,183 @@ function BMOFace({ mood, isSpeaking }) {
     return () => clearInterval(blinkInterval);
   }, []);
 
+  // Mouse tracking - eyes follow cursor
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!faceRef.current) return;
+      
+      const rect = faceRef.current.getBoundingClientRect();
+      const faceCenterX = rect.left + rect.width / 2;
+      const faceCenterY = rect.top + rect.height / 2;
+      
+      // Calculate angle and distance
+      const deltaX = e.clientX - faceCenterX;
+      const deltaY = e.clientY - faceCenterY;
+      
+      // Limit eye movement range
+      const maxMove = 8; // pixels
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      const limitedDistance = Math.min(distance, 200);
+      
+      const x = (deltaX / 200) * maxMove;
+      const y = (deltaY / 200) * maxMove;
+      
+      setEyePosition({ x: Math.max(-maxMove, Math.min(maxMove, x)), 
+                       y: Math.max(-maxMove, Math.min(maxMove, y)) });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // Camera face detection (optional)
+  useEffect(() => {
+    let animationFrame;
+    let faceDetector;
+
+    const startFaceDetection = async () => {
+      try {
+        // Check if Face Detection API is available
+        if (!('FaceDetector' in window)) {
+          console.log('Face Detection API not available - using mouse tracking only');
+          return;
+        }
+
+        // Request camera access
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: 320, height: 240 } 
+        });
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+
+        // Initialize face detector
+        faceDetector = new window.FaceDetector({ 
+          maxDetectedFaces: 1,
+          fastMode: true 
+        });
+
+        const detectFaces = async () => {
+          if (videoRef.current && videoRef.current.readyState === 4) {
+            try {
+              const faces = await faceDetector.detect(videoRef.current);
+              
+              if (faces.length > 0) {
+                const face = faces[0];
+                const boundingBox = face.boundingBox;
+                
+                // Calculate face center relative to video
+                const faceCenterX = boundingBox.x + boundingBox.width / 2;
+                const faceCenterY = boundingBox.y + boundingBox.height / 2;
+                
+                // Video center
+                const videoCenterX = videoRef.current.videoWidth / 2;
+                const videoCenterY = videoRef.current.videoHeight / 2;
+                
+                // Calculate eye movement
+                const deltaX = (faceCenterX - videoCenterX) / videoCenterX;
+                const deltaY = (faceCenterY - videoCenterY) / videoCenterY;
+                
+                const maxMove = 8;
+                setEyePosition({
+                  x: -deltaX * maxMove, // Negative for correct direction
+                  y: deltaY * maxMove
+                });
+                
+                setFaceDetected(true);
+              } else {
+                setFaceDetected(false);
+              }
+            } catch (err) {
+              console.error('Face detection error:', err);
+            }
+          }
+          
+          animationFrame = requestAnimationFrame(detectFaces);
+        };
+
+        detectFaces();
+      } catch (err) {
+        console.log('Camera not available - using mouse tracking only');
+      }
+    };
+
+    // Uncomment to enable face tracking:
+    // startFaceDetection();
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      if (videoRef.current && videoRef.current.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  // Random idle eye movements
+  useEffect(() => {
+    const idleMovement = setInterval(() => {
+      // Only do idle movements if not following mouse actively
+      if (Math.abs(eyePosition.x) < 1 && Math.abs(eyePosition.y) < 1) {
+        const randomX = (Math.random() - 0.5) * 6;
+        const randomY = (Math.random() - 0.5) * 6;
+        setEyePosition({ x: randomX, y: randomY });
+        
+        // Return to center after a moment
+        setTimeout(() => {
+          setEyePosition({ x: 0, y: 0 });
+        }, 500);
+      }
+    }, 5000); // Every 5 seconds
+
+    return () => clearInterval(idleMovement);
+  }, [eyePosition]);
+
   return (
-    <div className={`bmo-face ${mood}`}>
+    <div className={`bmo-face ${mood}`} ref={faceRef}>
+      {/* Hidden video for face detection */}
+      <video 
+        ref={videoRef} 
+        style={{ display: 'none' }} 
+        width="320" 
+        height="240"
+      />
+      <canvas 
+        ref={canvasRef} 
+        style={{ display: 'none' }} 
+        width="320" 
+        height="240"
+      />
+      
+      {/* Face detection indicator */}
+      {faceDetected && (
+        <div className="face-detected-indicator">
+          👁️ Watching you!
+        </div>
+      )}
+      
       <div className="screen">
         <div className={`eyes ${isSpeaking ? 'talking' : ''}`}>
           <div className={`eye left ${blinkLeft ? 'blink' : ''}`}>
-            <div className="pupil"></div>
+            <div 
+              className="pupil" 
+              style={{
+                transform: `translate(${eyePosition.x}px, ${eyePosition.y}px)`,
+                transition: 'transform 0.2s ease-out'
+              }}
+            ></div>
           </div>
           <div className={`eye right ${blinkRight ? 'blink' : ''}`}>
-            <div className="pupil"></div>
+            <div 
+              className="pupil"
+              style={{
+                transform: `translate(${eyePosition.x}px, ${eyePosition.y}px)`,
+                transition: 'transform 0.2s ease-out'
+              }}
+            ></div>
           </div>
         </div>
         

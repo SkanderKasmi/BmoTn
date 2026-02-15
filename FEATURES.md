@@ -8,6 +8,8 @@
 - ✅ Treats users like friends and family
 - ✅ Expresses emotions through animated face
 - ✅ Makes jokes and tells stories
+- ✅ **Eyes follow you around!** 👀 (mouse/touch tracking)
+- ✅ **Optional camera face tracking** (watches you move)
 
 ### Tunisian Arabic Support
 - ✅ Speaks primarily in Tunisian Darija (دارجة تونسية)
@@ -97,6 +99,15 @@
 - ✅ Mood-based facial changes (happy, thinking, talking, excited)
 - ✅ Colorful game console buttons
 - ✅ Smooth animations and transitions
+
+### Eye Tracking (NEW! 👀)
+- ✅ **Mouse tracking** - Eyes follow your cursor (web)
+- ✅ **Touch tracking** - Eyes follow your finger (mobile)
+- ✅ **Camera face tracking** - Watches your actual face (optional)
+- ✅ Smooth, natural eye movements
+- ✅ Random idle glances when not active
+- ✅ Synchronized blinking
+- ✅ Privacy-first (camera is optional)
 
 ### Web Interface
 - ✅ Clean, modern design
